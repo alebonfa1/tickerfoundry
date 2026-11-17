@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import sys
 
-from . import __version__
+from . import INVESTMENT_DISCLAIMER, __version__
 from .reporting import write_report, write_research_report
 
 
@@ -48,7 +48,7 @@ def fresh_output(path):
     return folder
 
 
-def input_template(company, as_of):
+def input_template(company, as_of, basis="enterprise"):
     valuation_date = date.fromisoformat(as_of)
     end_year = valuation_date.year if valuation_date.month != 12 or valuation_date.day != 31 else valuation_date.year + 1
     start = valuation_date + timedelta(days=1)
@@ -61,7 +61,7 @@ def input_template(company, as_of):
         start = end + timedelta(days=1)
     fact_names = ("cash", "debt", "other_claims", "other_nonoperating_assets",
                   "valuation_shares", "shares_outstanding", "market_price")
-    return {
+    template = {
         "schema_version": "0.1",
         "company": {"name": company, "ticker": "", "exchange": "", "currency": "", "sector_model": "non_financial"},
         "valuation_date": as_of, "synthetic": False,
@@ -72,6 +72,24 @@ def input_template(company, as_of):
                         "terminal_operating_margin": None, "terminal_tax_rate": None, "rationale": ""},
         "forecasts": forecasts,
     }
+    if basis == "common-equity":
+        from .common_equity import CONVENTION, SCENARIOS
+        from .validation import EQUITY_FACTS, EQUITY_SCHEMA
+        template["schema_version"] = EQUITY_SCHEMA
+        del template["company"]["sector_model"]
+        del template["assumptions"]
+        del template["forecasts"]
+        template["discount_convention"] = CONVENTION
+        template["facts"] = {key: template["facts"][key] for key in EQUITY_FACTS}
+        template["scenarios"] = {
+            name: {"cost_of_equity": None, "terminal_growth": None, "terminal_annual_cash_flow": None,
+                   "source_ids": [], "rationale": "",
+                   "forecasts": [{"period_start": row["period_start"], "period_end": row["period_end"],
+                                  "net_cash_to_common": None, "source_ids": [], "rationale": ""}
+                                 for row in forecasts]}
+            for name in SCENARIOS
+        }
+    return template
 
 
 def run_case(input_path, output_path, use_astra=False, model="gpt-6-astra", reasoning="high", plan_path=None):
@@ -82,10 +100,13 @@ def run_case(input_path, output_path, use_astra=False, model="gpt-6-astra", reas
 def run_prepared_case(case, output_path, use_astra=False, model="gpt-6-astra", reasoning="high",
                       plan=None, evidence=None):
     from .core import evaluate_case
-    from .validation import validate_case
+    from .validation import EQUITY_SCHEMA, validate_case
 
     if not isinstance(case, dict):
         raise ValueError("The case must be a JSON object")
+    common_equity = case.get("schema_version") == EQUITY_SCHEMA
+    if common_equity and (plan is not None or use_astra):
+        raise ValueError("A common-equity case already contains its scenario forecasts. Run it with --input and --out.")
     result = None
     if plan is not None:
         from .model import evaluate_plan
@@ -95,10 +116,17 @@ def run_prepared_case(case, output_path, use_astra=False, model="gpt-6-astra", r
     output = fresh_output(output_path)
     canonical = json.dumps(case, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     issues = result["checks"] if result and result.get("equity_method") else validate_case(case)
+    if common_equity and not any(item["severity"] == "error" for item in issues):
+        from .common_equity import evaluate_common_equity
+        try:
+            result = evaluate_common_equity(case)
+            issues = result["checks"]
+        except (ValueError, ArithmeticError) as exc:
+            issues.append({"severity": "error", "code": "calculation_range", "message": str(exc)})
     audit = {"software_version": __version__, "generated_at": datetime.now(timezone.utc).isoformat(),
              "input_sha256": hashlib.sha256(canonical).hexdigest(), "code_sha256": code_hash(),
              "status": "blocked" if any(i["severity"] == "error" for i in issues) else "needs_review",
-             "publication_ready": False, "source_content_verified": False,
+             "publication_ready": False, "source_content_verified": False, "disclaimer": INVESTMENT_DISCLAIMER,
              "astra_requested": use_astra,
              "model_requested": model if use_astra else None,
              "reasoning_requested": reasoning if use_astra else None, "checks": issues}
@@ -170,7 +198,8 @@ def analyze_workspace(ric, output, snapshot_path=None, drafts=False):
                       "sha256": hashlib.sha256(snapshot_file.read_bytes()).hexdigest()},
         )
     except (OSError, ValueError, RuntimeError, KeyError, AttributeError, TypeError) as exc:
-        write_json(root / "status.json", {"status": "blocked", "ric": ric, "reason": str(exc)})
+        write_json(root / "status.json", {"status": "blocked", "ric": ric, "reason": str(exc),
+                                         "disclaimer": INVESTMENT_DISCLAIMER})
         from .reporting import write_blocked_workspace_report
         write_blocked_workspace_report(root / "report.html", ric, snapshot, str(exc))
         raise
@@ -182,13 +211,15 @@ def analyze_workspace(ric, output, snapshot_path=None, drafts=False):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="TickerFoundry · Reproducible listed-equity research")
+    parser = argparse.ArgumentParser(description="TickerFoundry · Reproducible listed-equity research",
+                                     epilog=INVESTMENT_DISCLAIMER)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="Prepare a company request and an intentionally incomplete input template")
     init.add_argument("company")
     init.add_argument("--as-of", required=True)
     init.add_argument("--out", required=True)
+    init.add_argument("--basis", choices=("enterprise", "common-equity"), default="enterprise")
     demo = commands.add_parser("demo", help="Run the clearly fictional example without credentials or network")
     demo.add_argument("--out", required=True)
     check = commands.add_parser("check", help="Check a normalized case without network calls")
@@ -230,11 +261,12 @@ def main(argv=None):
         if args.command == "analyze":
             return analyze_workspace(args.ric, args.out, args.from_snapshot, args.drafts)
         if args.command == "init":
-            case = input_template(args.company, args.as_of)
+            case = input_template(args.company, args.as_of, args.basis)
             out = fresh_output(args.out)
             write_json(out / "case.json", case)
             write_json(out / "request.json", {"company_query": args.company, "valuation_date": args.as_of,
-                                               "status": "identity_and_inputs_required", "publication_ready": False})
+                                               "status": "identity_and_inputs_required", "publication_ready": False,
+                                               "disclaimer": INVESTMENT_DISCLAIMER})
             print(f"Prepared {out / 'case.json'}; blanks require evidence and assumptions before valuation.")
             return 0
         if args.command == "demo":

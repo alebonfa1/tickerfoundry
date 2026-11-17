@@ -30,10 +30,10 @@ unverified model as an error-free valuation or automatic investment advice.
 
 - All valuation arithmetic belongs in deterministic code; prose must use its
   returned results. Agent agreement is not an independent numerical check.
-- The live analyzer routes operating companies to FCFF, financial firms to
-  residual income, and equity REITs to a dividend and FFO model. Preserve
-  method-specific eligibility checks and return a coverage report when the
-  evidence cannot support a value.
+- The public common-equity cash-flow model applies the same contract to any
+  listed company. The Workspace connector selects a supported valuation basis.
+  Preserve its method-specific eligibility checks and return a coverage report
+  when the evidence cannot support a value.
 - Reinvestment must include every material operating investment. Netflix
   content investment cannot be added twice through separate cash-flow lines.
 - Pair FCFF with WACC, maintain the enterprise-to-equity bridge, use economic
@@ -47,6 +47,8 @@ unverified model as an error-free valuation or automatic investment advice.
 - The business reviewer challenges revenue drivers, competition and risks.
 - The critical reviewer reads the evidence, model outputs and both reviews;
   it records unresolved issues rather than voting on a target price.
+- Include the investment disclaimer in every report and editorial draft.
+  Attribute underlying data and record assumptions that affect the result.
 - Reviewer outputs cannot overwrite inputs or grant publication approval.
 - Passing schema checks does not prove that a source supports a claim.
 - Maintain tests for concrete financial, provenance and privacy failure modes.

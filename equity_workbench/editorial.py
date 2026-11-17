@@ -3,6 +3,7 @@
 from hashlib import sha256
 import json
 
+from . import INVESTMENT_DISCLAIMER
 from .cli import fresh_output, load_json
 from .model import SCENARIOS, evaluate_plan
 from .validation import zoned_timestamp
@@ -97,7 +98,7 @@ def write_drafts(run, destination):
                "interessi e conflitti, diritti dei dati, fonti e collegamento al dossier.")
     output = fresh_output(destination)
     linkedin = [
-        release, f"{name} ({company['ticker']}) | Analisi {day} | Chiusura {quote_day} {price}",
+        INVESTMENT_DISCLAIMER, release, f"{name} ({company['ticker']}) | Analisi {day} | Chiusura {quote_day} {price}",
         context["business"], context["evidence"], assumptions, valuation, implied,
         context["risk"], context["falsifier"], f"Fonti\n{sources}",
     ]
@@ -111,7 +112,7 @@ def write_drafts(run, destination):
         ("Cosa monitorare", f"{context['risk']} {context['falsifier']}"),
         ("Fonti e disclosure", release),
     ]
-    instagram = "\n\n".join(f"## {i}. {title}\n\n{copy}" for i, (title, copy) in enumerate(slides, 1))
-    caption = f"{name} | {day}. {valuation} {implied}\n\n{release}\n\nFonti\n{sources}"
+    instagram = "\n\n".join(f"## {i}. {title}\n\n{copy}\n\n{INVESTMENT_DISCLAIMER}" for i, (title, copy) in enumerate(slides, 1))
+    caption = f"{name} | {day}. {valuation} {implied}\n\n{INVESTMENT_DISCLAIMER}\n\n{release}\n\nFonti\n{sources}"
     (output / "linkedin.md").write_text("\n\n".join(linkedin) + "\n", encoding="utf-8")
     (output / "instagram.md").write_text(f"{instagram}\n\n## Didascalia\n\n{caption}\n", encoding="utf-8")

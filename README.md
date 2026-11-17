@@ -1,9 +1,11 @@
 # TickerFoundry
 
 Turn a stock ticker or ISIN into a reproducible valuation report. TickerFoundry
-downloads the required inputs from your signed-in LSEG Workspace desktop,
-chooses a valuation method, and produces a local HTML report with financial
-scenarios and the data needed to rerun it.
+downloads inputs from your signed-in LSEG Workspace desktop and produces a local
+HTML report with financial scenarios and the data needed to rerun it. The entry
+point is the same for every listed company.
+
+**For informational and educational purposes only. This is not investment advice.**
 
 ## Quick start
 
@@ -39,19 +41,24 @@ local Workspace session.”** The instructions in [AGENTS.md](AGENTS.md) direct
 the agent to run the program and read the saved results. The deterministic
 valuation runs in Python and does not require an AI API.
 
-## Valuation coverage
+## Extend the valuation to any business
 
-| Company economics | Valuation method | Key inputs |
-|---|---|---|
-| Operating businesses | Enterprise FCFF discounted at WACC | Standardized statements, EBIT and revenue consensus, financial claims and reinvestment |
-| Banks, insurers and other financial firms | Common-equity residual income discounted at the cost of equity | Common book value, earnings and dividend consensus, implied terminal ROE |
-| Equity REITs | Dividend discount with forward FFO coverage and P/FFO | Dividend and per-share FFO consensus, cost of equity |
+The portable model discounts **net cash available to the common equity being
+valued**. Every issuer uses the same input structure. You supply business-specific
+cash flows, the relevant claims and reinvestment treatment within those flows,
+and three documented scenarios.
 
-Current coverage depends on the provider fields, current data rights and
-model fit. Missing or inconsistent evidence, complex claims, distress and
-special situations can require analyst inputs. See [methodology](docs/METHODOLOGY.md)
-and [Workspace guide](docs/LSEG_WORKSPACE.md). This release uses LSEG Workspace
-for live downloads and supports provider-neutral normalized cases for manual DCF.
+```powershell
+python -m equity_workbench init "Issuer name" --as-of YYYY-MM-DD --basis common-equity --out runs/issuer-input
+python -m equity_workbench check --input runs/issuer-input/case.json
+python -m equity_workbench run --input runs/issuer-input/case.json --out runs/issuer-valuation
+```
+
+Fill the blank inputs from your own sources before running `check`. The automated
+Workspace command selects a supported valuation basis and checks its input
+requirements. Complex claims, distress or unavailable data may need a separately
+prepared forecast. See [valuation mechanics](docs/METHODOLOGY.md) and
+[Workspace data coverage](docs/LSEG_WORKSPACE.md).
 
 ## Reproduce and contribute
 

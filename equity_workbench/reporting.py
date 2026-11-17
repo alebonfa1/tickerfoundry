@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 
-from . import __version__
+from . import INVESTMENT_DISCLAIMER, __version__
 
 
 def esc(value):
@@ -44,6 +44,7 @@ section{margin-top:18px}.note{border-left:4px solid var(--accent);padding:10px 1
 .numeric{text-align:right;font-variant-numeric:tabular-nums}ul{padding-left:22px}.error{color:#9d2323}.warning{color:#785516}
 pre{white-space:pre-wrap;word-break:break-word;background:#f5f8fa;padding:18px;border-radius:8px;font-size:.78rem;max-height:650px;overflow:auto}
 details{margin-top:14px}summary{cursor:pointer;font-weight:650}.footer{font-size:.8rem;color:var(--muted);margin-top:25px}
+.disclaimer{font-size:.82rem;color:var(--muted);margin:0 0 24px}
 @media(max-width:700px){main{padding:25px 14px}.cards{grid-template-columns:1fr}.card,section{padding:18px}h1{font-size:2.2rem}}
 @media print{body{background:white}main{padding:0}.card,section{break-inside:avoid}details{display:block}pre{max-height:none}}
 """
@@ -52,7 +53,8 @@ details{margin-top:14px}summary{cursor:pointer;font-weight:650}.footer{font-size
 def shell(title, body):
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            f"<title>{esc(title)}</title><style>{CSS}</style></head><body><main>{body}</main></body></html>")
+            f"<title>{esc(title)}</title><style>{CSS}</style></head><body><main>"
+            f'<p class="disclaimer">{esc(INVESTMENT_DISCLAIMER)}</p>{body}</main></body></html>')
 
 
 def workspace_summary(research):
@@ -141,7 +143,55 @@ def write_direct_equity_report(path, case, result, audit, plan):
     Path(path).write_text(shell(company["name"], body), encoding="utf-8")
 
 
+def write_common_equity_report(path, case, result, audit):
+    company = case["company"]
+    base = result["scenarios"]["base"]
+    currency = esc(company["currency"])
+    body = (f'<div class="eyebrow">TickerFoundry · Common-equity cash flows</div><h1>{esc(company["name"])}</h1>'
+            f'<span class="badge">{"Fictional demonstration" if case["synthetic"] else "Research draft"}</span>'
+            f'<p>{esc(company["ticker"])} · {esc(company["exchange"])} · {currency} · {esc(case["valuation_date"])}</p>'
+            f'<p>Reference price {number(result["market_price"])} {currency} per share on '
+            f'{esc(case["facts"]["market_price"]["period_end"])}. Forecast amounts and share counts are in millions.</p>'
+            '<section><h2>Value by scenario</h2><div class="table-wrap"><table><thead><tr>'
+            '<th>Scenario</th><th>Value per share</th><th>Versus price</th><th>Equity cost</th><th>Terminal growth</th>'
+            '<th>Terminal cash flow</th></tr></thead><tbody>')
+    for name, item in result["scenarios"].items():
+        body += (f'<tr><td>{esc(name.title())}</td><td>{number(item["value_per_share"])}</td><td>{item["upside_fraction"]:+.1%}</td>'
+                 f'<td>{item["cost_of_equity"]:.2%}</td><td>{item["terminal_growth"]:.2%}</td>'
+                 f'<td>{number(item["terminal_annual_cash_flow"])}</td></tr>')
+    body += '</tbody></table></div>'
+    terminal_share = base["terminal_value_share"]
+    if terminal_share is not None:
+        body += f'<p>The terminal value contributes {terminal_share:.1%} of base equity value.</p>'
+    body += (f'<p>The reference price implies annual terminal cash flow of {number(base["implied_terminal_annual_cash_flow"])} million '
+             f'{currency}, holding explicit cash flows, equity cost and terminal growth fixed.</p></section>'
+             '<section><h2>Forecast and assumptions</h2>')
+    for name, item in result["scenarios"].items():
+        inputs = case["scenarios"][name]
+        opened = " open" if name == "base" else ""
+        body += (f'<details{opened}><summary>{esc(name.title())} cash flows</summary><p>{esc(inputs["rationale"])} '
+                 f'({esc(", ".join(inputs["source_ids"]))})</p><div class="table-wrap"><table><thead><tr>'
+                 '<th>Period end</th><th>Net cash to common equity</th><th>Present value</th><th>Basis and data IDs</th>'
+                 '</tr></thead><tbody>')
+        for row in item["forecast_rows"]:
+            body += (f'<tr><td>{esc(row["period_end"])}</td><td>{number(row["net_cash_to_common"])}</td>'
+                     f'<td>{number(row["present_value"])}</td><td>{esc(row["rationale"])} ({esc(", ".join(row["source_ids"]))})</td></tr>')
+        body += '</tbody></table></div></details>'
+    body += '</section><section><h2>Cost of equity sensitivity</h2><ul>'
+    for entry in result["sensitivities"]:
+        body += f'<li>{entry["cost_of_equity"]:.2%} · {number(entry["value_per_share"])} {currency} per share</li>'
+    body += '</ul></section><section><h2>Data sources and checks</h2><ul>'
+    body += "".join(f'<li>{esc(item["id"])} · {source_link(item)} · Published {esc(item["published_at"])}</li>' for item in case["sources"])
+    body += '</ul><ul>'
+    body += "".join(f'<li>{esc(item["message"])}</li>' for item in audit["checks"])
+    body += f'</ul><p class="footer">Input SHA-256 {esc(audit["input_sha256"])}</p></section>'
+    Path(path).write_text(shell(company["name"], body), encoding="utf-8")
+
+
 def write_report(path, case, result, audit, reviews=None, plan=None):
+    if result and result.get("valuation_basis") == "common_equity_cash_flows":
+        write_common_equity_report(path, case, result, audit)
+        return
     if result and result.get("equity_method"):
         write_direct_equity_report(path, case, result, audit, plan)
         return

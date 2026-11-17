@@ -16,6 +16,8 @@ REQUIRED_FACTS = (
     "cash", "debt", "other_claims", "other_nonoperating_assets",
     "shares_outstanding", "valuation_shares", "market_price",
 )
+EQUITY_SCHEMA = "common-equity-1"
+EQUITY_FACTS = ("shares_outstanding", "valuation_shares", "market_price")
 RIGHTS_VALUES = {"permitted", "restricted", "unknown"}
 
 
@@ -71,8 +73,9 @@ def validate_case(case: Any) -> list[dict[str, str]]:
     if not isinstance(case, dict):
         add("case_type", "The case must be a JSON object.")
         return issues
-    if case.get("schema_version") != "0.1":
-        add("schema_version", "schema_version must be '0.1'.")
+    direct_equity = case.get("schema_version") == EQUITY_SCHEMA
+    if not direct_equity and case.get("schema_version") != "0.1":
+        add("schema_version", f"schema_version must be '0.1' or '{EQUITY_SCHEMA}'.")
     if not isinstance(case.get("synthetic"), bool):
         add("synthetic_flag", "synthetic must explicitly be true or false.")
     elif case["synthetic"]:
@@ -92,7 +95,7 @@ def validate_case(case: Any) -> list[dict[str, str]]:
     for field in ("name", "ticker", "exchange", "currency"):
         if not isinstance(company.get(field), str) or not company[field].strip():
             add("company_" + field, f"company.{field} must be a nonempty string.")
-    if company.get("sector_model") != "non_financial":
+    if not direct_equity and company.get("sector_model") != "non_financial":
         add("unsupported_sector", "Only the non_financial FCFF route is implemented; banks, insurers, REITs and other specialist routes require their own model.")
     currency = company.get("currency")
     if isinstance(currency, str) and (len(currency) != 3 or not currency.isalpha() or currency != currency.upper()):
@@ -155,7 +158,7 @@ def validate_case(case: Any) -> list[dict[str, str]]:
     if not isinstance(facts, dict):
         add("facts", "facts must be an object.")
         facts = {}
-    for name in REQUIRED_FACTS:
+    for name in EQUITY_FACTS if direct_equity else REQUIRED_FACTS:
         if name not in facts:
             add("missing_fact", f"facts.{name} is required; missing values are not zero.")
     for name, fact in facts.items():
@@ -208,6 +211,11 @@ def validate_case(case: Any) -> list[dict[str, str]]:
         calculated_cap = price * basic
         if abs(observed_cap - calculated_cap) > max(0.01 * calculated_cap, 1e-9):
             add("market_cap_mismatch", "Reported market_cap differs by more than 1% from price × basic shares; reconcile dates, units and corporate actions.")
+
+    if direct_equity:
+        from .common_equity import check_scenarios
+        check_scenarios(case, as_of, source_map, add)
+        return issues
 
     assumptions = case.get("assumptions")
     if not isinstance(assumptions, dict):

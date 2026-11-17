@@ -13,7 +13,7 @@ FILES = {
     "docs/ANALYSIS_PROTOCOL.md", "docs/DATA_RIGHTS.md", "docs/VALIDATION.md", "docs/LSEG_WORKSPACE.md",
     "docs/METHODOLOGY.md",
     "equity_workbench/__init__.py", "equity_workbench/__main__.py", "equity_workbench/astra.py",
-    "equity_workbench/cli.py", "equity_workbench/core.py", "equity_workbench/editorial.py",
+    "equity_workbench/cli.py", "equity_workbench/core.py", "equity_workbench/common_equity.py", "equity_workbench/editorial.py",
     "equity_workbench/evidence.py", "equity_workbench/model.py", "equity_workbench/reporting.py",
     "equity_workbench/lseg_workspace.py", "equity_workbench/lseg_analysis.py", "equity_workbench/equity_models.py",
     "equity_workbench/validation.py", "equity_workbench/resources/synthetic_company.json",
@@ -21,6 +21,7 @@ FILES = {
     "prompts/critical_reviewer.md", "prompts/research.md", "schemas/company.schema.json",
     "scripts/package_public.py", "tests/test_astra.py", "tests/test_cli.py", "tests/test_core.py",
     "tests/test_validation.py", "tests/test_model.py", "tests/test_lseg.py", "tests/test_equity_models.py",
+    "tests/test_common_equity.py",
 }
 
 
