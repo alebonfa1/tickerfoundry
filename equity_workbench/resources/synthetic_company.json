@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1",
+  "company": {
+    "name": "ExampleCo — entirely fictional demonstration",
+    "ticker": "EXAMPLE",
+    "exchange": "FICTIONAL",
+    "currency": "USD",
+    "sector_model": "non_financial"
+  },
+  "valuation_date": "2025-12-31",
+  "synthetic": true,
+  "units": {"money": "millions", "shares": "millions", "price": "currency_per_share"},
+  "sources": [
+    {
+      "id": "SYNTHETIC-001",
+      "title": "Fictional arithmetic fixture; not observations about a real issuer",
+      "url": "synthetic://equity-workbench/exampleco",
+      "published_at": "2025-12-31T21:00:00Z",
+      "retrieved_at": "2026-01-01T00:00:00Z",
+      "redistribution": "permitted",
+      "cloud_processing": "permitted"
+    }
+  ],
+  "facts": {
+    "cash": {"value": 100.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional nonoperating cash in USD millions."},
+    "debt": {"value": 150.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional debt claims, consistently treated with operating forecasts."},
+    "other_claims": {"value": 0.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Explicit zero for the fixture; no omitted real-company claims."},
+    "other_nonoperating_assets": {"value": 0.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Explicit zero for the fixture."},
+    "shares_outstanding": {"value": 100.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional current basic shares in millions; not weighted-average EPS shares."},
+    "valuation_shares": {"value": 105.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional current basic shares plus 5 million incremental diluted shares; assumes no separate option-value deduction."},
+    "market_price": {"value": 20.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional per-share price in USD; not a market quote."},
+    "market_cap": {"value": 2000.0, "source_id": "SYNTHETIC-001", "period_end": "2025-12-31", "basis": "Fictional price × current basic shares, in USD millions."}
+  },
+  "assumptions": {
+    "wacc": 0.09,
+    "terminal_growth": 0.025,
+    "terminal_roic": 0.12,
+    "terminal_operating_margin": 0.23,
+    "terminal_tax_rate": 0.25,
+    "discount_convention": "end_period_actual_365",
+    "rationale": "All inputs are invented solely to exercise the arithmetic. No discount rate, growth or margin here is an estimate about a real company. Terminal reinvestment is g/ROIC."
+  },
+  "forecasts": [
+    {"period_start": "2026-01-01", "period_end": "2026-12-31", "revenue": 1050.0, "operating_margin": 0.20, "tax_rate": 0.25, "net_reinvestment": 20.0, "rationale": "Fictional full-year forecast. Net reinvestment includes every operating investment after applicable noncash charges and working-capital changes exactly once."},
+    {"period_start": "2027-01-01", "period_end": "2027-12-31", "revenue": 1100.0, "operating_margin": 0.21, "tax_rate": 0.25, "net_reinvestment": 21.0, "rationale": "Fictional full-year forecast using an explicit all-inclusive net-reinvestment amount."},
+    {"period_start": "2028-01-01", "period_end": "2028-12-31", "revenue": 1160.0, "operating_margin": 0.22, "tax_rate": 0.25, "net_reinvestment": 22.0, "rationale": "Fictional 366-day full-year forecast; terminal assumptions begin after this period."}
+  ]
+}
